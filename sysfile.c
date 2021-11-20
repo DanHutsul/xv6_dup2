@@ -66,6 +66,50 @@ sys_dup(void)
   return fd;
 }
 
+//! EDIT START
+int
+sys_dup2()
+{
+    struct file *old_file, *new_file;
+    int old_fd, new_fd;
+    struct proc *curproc = myproc();
+    // argfd returns descriptor and corresponding struct file
+    // If it returns bad fd -> fail syscall
+    if (argfd(0, &old_fd, &old_file) < 0) {
+        return -1;
+    }
+    if (argint(1, &new_fd) < 0) {
+        return -1;
+    }
+
+    if (old_file == new_file) {
+        return new_fd;
+    }
+
+    // Check if new file descriptor is in use
+    if (curproc->ofile[new_fd] == 0) { // If not, do code below
+        curproc->ofile[new_fd] = old_file;
+        // Increment reference count
+        filedup(old_file);
+        return new_fd;
+    } else if (argfd(1, &new_fd, &new_file) < 0) {
+        // Same thing as before
+        return -1;
+    }
+
+    // Check if we need to close new file
+    // I.E. - it has references
+    if (new_file->ref > 0) {
+        fileclose(new_file);
+    }
+
+    curproc->ofile[new_fd] = old_file;
+    // Increment reference count
+    filedup(old_file);
+    return new_fd;
+}
+//! EDIT END
+
 int
 sys_read(void)
 {
